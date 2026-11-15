@@ -1,0 +1,41 @@
+[
+  {
+    "num_images": 1,
+    "total_payload_mb": 0.5,
+    "total_chunks": 2,
+    "total_duration_s": 0.0371,
+    "throughput_mb_s": 13.49,
+    "chunks_per_sec": 54.0,
+    "images_per_sec": 27.0,
+    "peak_ram_mb": 89.31,
+    "ram_growth_mb": 4.69,
+    "success": true,
+    "num_responses": 11
+  },
+  {
+    "num_images": 10,
+    "total_payload_mb": 5.0,
+    "total_chunks": 20,
+    "total_duration_s": 0.1452,
+    "throughput_mb_s": 34.45,
+    "chunks_per_sec": 137.8,
+    "images_per_sec": 68.9,
+    "peak_ram_mb": 110.58,
+    "ram_growth_mb": 20.08,
+    "success": true,
+    "num_responses": 56
+  },
+  {
+    "num_images": 100,
+    "total_payload_mb": 50.0,
+    "total_chunks": 200,
+    "total_duration_s": 1.118,
+    "throughput_mb_s": 44.72,
+    "chunks_per_sec": 178.9,
+    "images_per_sec": 89.4,
+    "peak_ram_mb": 127.52,
+    "ram_growth_mb": 16.94,
+    "success": true,
+    "num_responses": 506
+  }
+]

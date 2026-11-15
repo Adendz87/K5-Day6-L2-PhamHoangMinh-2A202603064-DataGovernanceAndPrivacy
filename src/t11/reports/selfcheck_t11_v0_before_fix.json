@@ -1,0 +1,136 @@
+{
+  "seeds": 30,
+  "rate": 0.15,
+  "params": {
+    "budget": 10,
+    "review_budget": "auto",
+    "match_iou": 0.3,
+    "shift_gate": 2.0,
+    "dup_iou": 0.5,
+    "orphan_overlap": 0.3,
+    "w_dup": 0.95,
+    "w_swap": 0.9,
+    "w_shift": 0.85,
+    "w_missing": 0.85,
+    "w_unmatched": 0.35,
+    "missing_conf_floor": 0.4,
+    "rework_error_rate": 0.3,
+    "go_error_rate": 0.1,
+    "go_residual_score": 0.5
+  },
+  "summary": {
+    "PoC (đầy đủ)": {
+      "recall_mean": 0.5525974025974026,
+      "recall_std": 0.04185257713304134,
+      "precision_mean": 0.8066666666666668,
+      "precision_std": 0.060491811505849806,
+      "per_type": {
+        "class_swap": 0.47777777777777775,
+        "box_shift": 0.7611111111111112,
+        "duplicate": 0.7933333333333334,
+        "missing": 0.14166666666666666
+      },
+      "ceiling_mean": 0.6850649350649355,
+      "B": 15
+    },
+    "bỏ duplicate": {
+      "recall_mean": 0.66976911976912,
+      "recall_std": 0.021359468017153212,
+      "precision_mean": 0.9777777777777779,
+      "precision_std": 0.03142696805273545,
+      "per_type": {
+        "class_swap": 0.9333333333333332,
+        "box_shift": 0.9888888888888889,
+        "duplicate": 0.08000000000000002,
+        "missing": 0.56
+      },
+      "ceiling_mean": 0.6850649350649355,
+      "B": 15
+    },
+    "bỏ class_swap": {
+      "recall_mean": 0.512987012987013,
+      "recall_std": 0.02567164051177083,
+      "precision_mean": 0.748888888888889,
+      "precision_std": 0.037251232476089385,
+      "per_type": {
+        "class_swap": 0.0,
+        "box_shift": 0.8833333333333332,
+        "duplicate": 0.9600000000000002,
+        "missing": 0.23000000000000007
+      },
+      "ceiling_mean": 0.6850649350649355,
+      "B": 15
+    },
+    "bỏ box_shift": {
+      "recall_mean": 0.4992784992784992,
+      "recall_std": 0.0310630989508656,
+      "precision_mean": 0.7288888888888891,
+      "precision_std": 0.04532461789860255,
+      "per_type": {
+        "class_swap": 0.7277777777777776,
+        "box_shift": 0.0,
+        "duplicate": 0.9666666666666667,
+        "missing": 0.35000000000000003
+      },
+      "ceiling_mean": 0.6850649350649355,
+      "B": 15
+    },
+    "bỏ missing": {
+      "recall_mean": 0.5435064935064935,
+      "recall_std": 0.03903052165657306,
+      "precision_mean": 0.7933333333333333,
+      "precision_std": 0.05537749241945387,
+      "per_type": {
+        "class_swap": 0.5111111111111111,
+        "box_shift": 0.7944444444444445,
+        "duplicate": 0.8133333333333336,
+        "missing": 0.0
+      },
+      "ceiling_mean": 0.6850649350649355,
+      "B": 15
+    },
+    "bỏ unmatched": {
+      "recall_mean": 0.5525974025974026,
+      "recall_std": 0.04185257713304134,
+      "precision_mean": 0.8066666666666668,
+      "precision_std": 0.060491811505849806,
+      "per_type": {
+        "class_swap": 0.47777777777777775,
+        "box_shift": 0.7611111111111112,
+        "duplicate": 0.7933333333333334,
+        "missing": 0.14166666666666666
+      },
+      "ceiling_mean": 0.6850649350649355,
+      "B": 15
+    },
+    "bỏ stage-2 (ghép theo tâm)": {
+      "recall_mean": 0.45072150072150075,
+      "recall_std": 0.04527099383486313,
+      "precision_mean": 0.6577777777777779,
+      "precision_std": 0.06378977819736587,
+      "per_type": {
+        "class_swap": 0.6333333333333333,
+        "box_shift": 0.05555555555555555,
+        "duplicate": 0.9133333333333334,
+        "missing": 0.23500000000000001
+      },
+      "ceiling_mean": 0.6850649350649355,
+      "B": 15
+    },
+    "random": {
+      "recall_mean": 0.08225108225108224,
+      "recall_std": 0.05487201541654125,
+      "precision_mean": 0.12000000000000002,
+      "precision_std": 0.07962876829852852,
+      "per_type": {
+        "class_swap": 0.09444444444444443,
+        "box_shift": 0.07222222222222222,
+        "duplicate": 0.06666666666666667,
+        "missing": 0.09500000000000001
+      },
+      "ceiling_mean": 0.6850649350649355,
+      "B": 15
+    }
+  },
+  "note": "Lỗi tự chèn trên dữ liệu synthetic: con số lạc quan, không thay cho eval của giảng viên."
+}

@@ -1,0 +1,56 @@
+grpc:
+  host: "0.0.0.0"
+  port: 50051
+  max_message_size_mb: 32
+  max_workers: 4
+
+transfer:
+  chunk_size_bytes: 1048576
+  max_image_size_mb: 50
+  max_job_size_gb: 10
+  max_concurrent_transfers: 8
+  ack_window_chunks: 8
+
+storage:
+  temp_path: "/tmp/t11_service/temp"
+  result_path: "/tmp/t11_service/results"
+  database_path: "/tmp/t11_service/t11.sqlite"
+  temp_retention_hours: 24
+  result_retention_days: 90
+
+processing:
+  batch_size: 16
+  queue_max_size: 256
+  max_concurrent_jobs: 2
+  device: "cpu"
+  max_ram_gb: 4.0
+  max_vram_gb: 2.0
+
+models:
+  yolo:
+    weights_path: "models/yolo/yolov8n.pt"
+    conf_threshold: 0.25
+    iou_threshold: 0.45
+    mock: true
+
+  sam3:
+    weights_path: "models/sam3/sam3_base.pt"
+    mock: true
+    enabled: false
+    conditional_execution: true
+
+scoring:
+  version: "real-world-v1"
+  risk_thresholds:
+    low: 0.2
+    medium: 0.5
+    high: 0.8
+
+security:
+  enable_tls: false
+  client_auth: false
+  request_timeout_seconds: 3600
+
+logging:
+  level: "INFO"
+  format: "json"

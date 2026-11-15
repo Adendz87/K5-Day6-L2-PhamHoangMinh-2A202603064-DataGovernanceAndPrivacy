@@ -1,6 +1,6 @@
 member,git_author_name,git_email,role,modules_files,commit_shas,evidence_note,presenter
-Member 1,,,Lead / Integrator,src/main.py; configs/,,,
-Member 2,,,Data & fixtures,fixtures/; tools/,,,
-Member 3,,,Core algorithm,src/pipeline.py,,,
-Member 4,,,QA / metric,tests/; reports/metrics_*.json,,,
-Member 5,,,Human review + report,reports/group_report.md; demo/,,,
+Phạm Hoàng Minh,AdenDz87,hminhvnc@gmail.com,Lead / Integrator / Architecture,src/main.py; configs/; service/server/; service/core/,b0ce8bf,Toàn bộ kiến trúc và luồng tích hợp hệ thống,yes
+Phạm Hoàng Minh,AdenDz87,hminhvnc@gmail.com,Core Algorithm & Service,src/pipeline.py; src/t11/; service/adapters/; service/analysis/,b0ce8bf,Thuật toán chấm suspicion score và adapter YOLO local inference,yes
+Phạm Hoàng Minh,AdenDz87,hminhvnc@gmail.com,QA / Metric & Verification,tests/; src/t11/tests/; service/tests/; tools/,b0ce8bf,Bộ test suite 84 service tests + 37 unit tests + selfcheck ablation,yes
+Phạm Hoàng Minh,AdenDz87,hminhvnc@gmail.com,Data & CVAT Integration,fixtures/; cvat/apps/quality_control/t11/,b0ce8bf,Xử lý fixture offline và tích hợp module CVAT quality control,yes
+Phạm Hoàng Minh,AdenDz87,hminhvnc@gmail.com,Human Review & Report,reports/group_report.md; README.md; demo/,b0ce8bf,Báo cáo tổng kết và hồ sơ nghiệm thu kỹ thuật,yes

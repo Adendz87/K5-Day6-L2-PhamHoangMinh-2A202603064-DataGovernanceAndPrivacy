@@ -1,0 +1,320 @@
+// t11.proto — T11 Evaluator Service Contract
+// Package: t11service
+// Proto syntax: proto3
+//
+// Bidirectional streaming RPC for post-label error review prioritization.
+// Client streams evaluation inputs; server streams back results as they are produced.
+
+syntax = "proto3";
+
+package t11service;
+
+option go_package = "./t11service";
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+// JobStatus tracks the lifecycle of an evaluation job.
+enum JobStatus {
+  CREATED        = 0;
+  RECEIVING      = 1;
+  VALIDATING     = 2;
+  INPUT_COMPLETE = 3;
+  QUEUED         = 4;
+  PROCESSING     = 5;
+  AGGREGATING    = 6;
+  COMPLETED      = 7;
+  FAILED         = 8;
+  CANCELLED      = 9;
+}
+
+// RiskLevel expresses the overall risk category of an annotation or job.
+enum RiskLevel {
+  RISK_UNKNOWN  = 0;
+  RISK_LOW      = 1;
+  RISK_MEDIUM   = 2;
+  RISK_HIGH     = 3;
+  RISK_CRITICAL = 4;
+}
+
+// AckType identifies which event a server Acknowledgement refers to.
+enum AckType {
+  ACK_JOB_STARTED           = 0;
+  ACK_IMAGE_RECEIVED        = 1;
+  ACK_ANNOTATIONS_RECEIVED  = 2;
+  ACK_INPUT_COMPLETE        = 3;
+  ACK_CHUNK                 = 4;
+  ACK_RESULT_PERSISTED      = 5;
+}
+
+// ImageStatus tracks per-image processing state within a job.
+enum ImageStatus {
+  IMAGE_PENDING            = 0;
+  IMAGE_RECEIVING          = 1;
+  IMAGE_RECEIVED           = 2;
+  IMAGE_VALIDATING         = 3;
+  IMAGE_YOLO_INFERENCE     = 4;
+  IMAGE_MATCHING           = 5;
+  IMAGE_SAM3_INFERENCE     = 6;
+  IMAGE_SCORING            = 7;
+  IMAGE_RESULT_PERSISTED   = 8;
+  IMAGE_DONE               = 9;
+  IMAGE_FAILED             = 10;
+}
+
+// ─────────────────────────────────────────────
+// Supporting / shared messages
+// ─────────────────────────────────────────────
+
+// BoundingBox uses top-left origin, pixel-absolute coordinates.
+// Matches geometry.py convention: (x, y) is top-left corner; w and h are width and height.
+message BoundingBox {
+  float x = 1; // Left edge (pixels, top-left origin)
+  float y = 2; // Top edge (pixels, top-left origin)
+  float w = 3; // Width (pixels)
+  float h = 4; // Height (pixels)
+}
+
+// Annotation represents a single human-provided label on an image.
+message Annotation {
+  string ann_id    = 1; // Unique annotation identifier
+  string image_id  = 2; // Parent image identifier
+  string class_name = 3; // Human-assigned class label
+  BoundingBox bbox  = 4; // Bounding box coordinates
+  float  confidence = 5; // Annotator confidence (0–1); 0 if not provided
+  map<string, string> extra_fields = 6; // Passthrough metadata (e.g. source, split)
+}
+
+// Evidence captures the comparison between a human annotation and a model prediction
+// for a single matched or unmatched detection.
+message Evidence {
+  BoundingBox human_bbox           = 1;  // Ground-truth annotation bbox
+  BoundingBox model_bbox           = 2;  // Model prediction bbox
+  float       iou                  = 3;  // Intersection-over-Union score [0,1]
+  bool        class_disagreement   = 4;  // True if human_class != predicted_class
+  string      human_class          = 5;  // Human-assigned class label
+  string      predicted_class      = 6;  // Model-predicted class label
+  float       prediction_confidence = 7; // Model prediction confidence [0,1]
+  string      match_stage          = 8;  // Which matching stage produced this evidence
+  string      sam3_mask_ref        = 9;  // Reference key for SAM-3 mask (empty if unused)
+  string      reason_code          = 10; // Short error-type code (e.g. CLASS_SWAP, BOX_SHIFT)
+  float       geometric_diff       = 11; // Scalar geometry distance / mismatch metric
+}
+
+// ─────────────────────────────────────────────
+// Client → Server messages
+// ─────────────────────────────────────────────
+
+// JobMetadata is the first message sent; initialises a new evaluation job.
+message JobMetadata {
+  string job_id          = 1;  // Client-assigned job identifier (UUID recommended)
+  string run_id          = 2;  // Experiment / run tag for reproducibility
+  string dataset_name    = 3;  // Human-readable dataset label
+  string dataset_version = 4;  // Dataset version string
+  int32  total_images    = 5;  // Expected number of images in this job
+  int32  total_annotations = 6; // Expected total annotation count
+  map<string, string> metadata = 7; // Arbitrary key-value metadata
+  string client_id       = 8;  // Client identifier (e.g. cvat, external_service)
+  string annotation_format = 9; // Format string (e.g. coco, yolo, custom)
+  map<string, string> class_mapping = 10; // Optional class mapping
+  string idempotency_key = 11; // Idempotency key for deduplication
+  repeated string target_classes = 12; // Optional class filter for YOLO inference (e.g. ["person"])
+}
+
+// ImageChunk carries a binary chunk of a single image file.
+// Raw bytes MUST be used; base64 encoding is prohibited.
+message ImageChunk {
+  string image_id    = 1; // Image identifier this chunk belongs to
+  uint32 chunk_index = 2; // Zero-based chunk sequence number within this image
+  bytes  chunk_data  = 3; // Raw image bytes (NOT base64, NOT string)
+  bool   is_last     = 4; // True if this is the final chunk for image_id
+  uint32 total_chunks = 5; // Total expected chunks for this image (informational)
+  string sha256      = 6; // SHA-256 hex digest of the complete image (sent in last chunk)
+}
+
+// AnnotationBatch carries a batch of human annotations for one or more images.
+message AnnotationBatch {
+  string batch_id           = 1; // Unique batch identifier
+  repeated Annotation items = 2; // Annotations in this batch
+}
+
+// EndOfInput signals that the client has finished sending all data.
+message EndOfInput {
+  int32  images_sent      = 1; // Total images actually sent
+  int32  chunks_sent      = 2; // Total chunks actually sent
+  int32  annotations_sent = 3; // Total annotations actually sent
+}
+
+// CancelRequest asks the server to abort the current job.
+message CancelRequest {
+  string job_id = 1; // Job to cancel
+  string reason = 2; // Human-readable cancellation reason
+}
+
+// ResumeRequest asks the server to resume an interrupted job.
+message ResumeRequest {
+  string job_id = 1;                    // Job to resume
+  string run_id = 2;                    // Run tag (must match original)
+  repeated string completed_image_ids = 3; // Images the client believes are complete
+}
+
+// ResultAcknowledgement tells the server which results the client has persisted.
+message ResultAcknowledgement {
+  string job_id                        = 1; // Job identifier
+  string run_id                        = 2; // Run identifier
+  uint64 last_acknowledged_result_sequence = 3; // Highest result sequence confirmed by client
+}
+
+// EvaluateRequest wraps every possible client message in a oneof.
+message EvaluateRequest {
+  oneof payload {
+    JobMetadata            job_metadata    = 1;
+    ImageChunk             image_chunk     = 2;
+    AnnotationBatch        annotation_batch = 3;
+    EndOfInput             end_of_input    = 4;
+    CancelRequest          cancel_request  = 5;
+    ResumeRequest          resume_request  = 6;
+    ResultAcknowledgement  result_ack      = 7;
+  }
+}
+
+// ─────────────────────────────────────────────
+// Server → Client messages
+// ─────────────────────────────────────────────
+
+// Acknowledgement confirms receipt of a client event.
+message Acknowledgement {
+  string  job_id   = 1; // Job identifier
+  string  run_id   = 2; // Run identifier
+  AckType ack_type = 3; // Event being acknowledged
+  string  detail   = 4; // Human-readable detail (optional)
+}
+
+// ReceivedState is returned in response to a ResumeRequest.
+// It allows the client to reconcile what the server already has.
+message ReceivedState {
+  string   job_id                              = 1;  // Job identifier
+  string   run_id                              = 2;  // Run identifier
+  repeated string completed_image_ids         = 3;  // Images fully received & accepted
+  repeated string pending_image_ids           = 4;  // Images partially received
+  map<string, uint32> last_chunk_per_image    = 5;  // Last accepted chunk index per image_id
+  repeated string confirmed_annotation_batch_ids = 6; // Annotation batches already committed
+  JobStatus current_job_status               = 7;  // Current server-side job state
+  uint64 last_persisted_result_sequence      = 8;  // Highest result sequence server has stored
+}
+
+// EvaluationProgress provides incremental progress updates.
+message EvaluationProgress {
+  string    job_id           = 1; // Job identifier
+  string    run_id           = 2; // Run identifier
+  string    image_id         = 3; // Image currently being processed (empty if job-level)
+  ImageStatus image_status   = 4; // Per-image pipeline stage
+  JobStatus job_status       = 5; // Current overall job state
+  int32     images_processed = 6; // Count of images fully evaluated so far
+  int32     images_total     = 7; // Total expected images
+  string    message          = 8; // Human-readable progress note
+}
+
+// ImageResult carries the evaluation outcome for a single image.
+message ImageResult {
+  string    job_id           = 1;  // Job identifier
+  string    run_id           = 2;  // Run identifier
+  uint64    result_sequence  = 3;  // Monotonically increasing result sequence number
+  string    image_id         = 4;  // Image identifier
+  RiskLevel risk_level       = 5;  // Aggregated risk for this image
+  float     suspicion_score  = 6;  // Composite suspicion score [0,1]
+  repeated string error_ann_ids = 7; // ann_ids flagged as potentially erroneous
+  repeated Evidence evidence  = 8;  // Supporting evidence items
+  ImageStatus final_status   = 9;  // Terminal image status
+}
+
+// AnnotationResult carries per-annotation scoring detail.
+message AnnotationResult {
+  string    job_id          = 1; // Job identifier
+  string    run_id          = 2; // Run identifier
+  uint64    result_sequence = 3; // Result sequence number
+  string    ann_id          = 4; // Annotation identifier
+  string    image_id        = 5; // Parent image identifier
+  float     suspicion_score = 6; // Individual annotation suspicion score [0,1]
+  RiskLevel risk_level      = 7; // Individual annotation risk level
+  Evidence  evidence        = 8; // Detailed evidence for this annotation
+  string    reason_code     = 9; // Top-level reason code for the flag
+}
+
+// MissingCandidate flags an image_id where the model detected an object
+// but no human annotation was found — a possible missing-annotation error.
+message MissingCandidate {
+  string    job_id          = 1; // Job identifier
+  string    run_id          = 2; // Run identifier
+  uint64    result_sequence = 3; // Result sequence number
+  string    image_id        = 4; // Image where the missing annotation was detected
+  string    item_id         = 5; // Canonical item id: "img:<image_id>" format
+  BoundingBox model_bbox    = 6; // Model detection bbox with no matching annotation
+  float     prediction_confidence = 7; // Model confidence for the unmatched detection
+  string    predicted_class = 8; // Predicted class label
+  float     suspicion_score = 9; // Missing-annotation suspicion score [0,1]
+}
+
+// JobResult provides the final aggregated ranking across all annotations and images.
+message JobResult {
+  string    job_id          = 1; // Job identifier
+  string    run_id          = 2; // Run identifier
+  uint64    result_sequence = 3; // Result sequence number (highest in job)
+  int32     total_annotations_evaluated = 4;
+  int32     total_images_evaluated      = 5;
+  int32     total_errors_flagged        = 6;
+  RiskLevel overall_risk    = 7; // Highest risk level encountered
+  repeated string top_item_ids = 8; // Ranked item_ids (ann_id or "img:<image_id>")
+  map<string, float> item_scores = 9; // Final suspicion scores by item_id
+  map<string, string> item_reason_codes = 10; // Top reason code per item_id
+}
+
+// JobCompleted is the final message in a successful stream.
+message JobCompleted {
+  string    job_id         = 1; // Job identifier
+  string    run_id         = 2; // Run identifier
+  uint64    result_sequence = 3; // Final result sequence number
+  JobStatus final_status   = 4; // Should be COMPLETED or FAILED
+  int64     duration_ms    = 5; // Wall-clock job duration in milliseconds
+  string    output_path    = 6; // Server-side path to persisted ranking file (if any)
+}
+
+// EvaluationError reports a recoverable or terminal error during stream processing.
+message EvaluationError {
+  string    job_id          = 1; // Job identifier
+  string    run_id          = 2; // Run identifier
+  uint64    result_sequence = 3; // Result sequence number at time of error
+  string    error_code      = 4; // Machine-readable error code
+  string    message         = 5; // Human-readable error description
+  bool      is_fatal        = 6; // True if the job cannot continue
+  string    affected_id     = 7; // ann_id or image_id that triggered the error (if applicable)
+}
+
+// EvaluateResponse wraps every possible server message in a oneof.
+message EvaluateResponse {
+  oneof payload {
+    Acknowledgement      acknowledgement     = 1;
+    ReceivedState        received_state      = 2;
+    EvaluationProgress   progress            = 3;
+    ImageResult          image_result        = 4;
+    AnnotationResult     annotation_result   = 5;
+    MissingCandidate     missing_candidate   = 6;
+    JobResult            job_result          = 7;
+    JobCompleted         job_completed       = 8;
+    EvaluationError      evaluation_error    = 9;
+  }
+}
+
+// ─────────────────────────────────────────────
+// Service
+// ─────────────────────────────────────────────
+
+// T11Evaluator provides bidirectional streaming evaluation of annotation quality.
+service T11Evaluator {
+  // Evaluate accepts a stream of client messages and returns a stream of server messages.
+  // The client begins with JobMetadata, streams ImageChunks and AnnotationBatches,
+  // then sends EndOfInput. The server streams Acknowledgements, progress updates,
+  // per-image and per-annotation results, and finally JobCompleted.
+  rpc Evaluate(stream EvaluateRequest) returns (stream EvaluateResponse);
+}

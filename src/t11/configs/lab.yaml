@@ -1,0 +1,33 @@
+# ============================================================
+# Group config — T11 Post-label Error Review Prioritizer
+# Params below are FROZEN before any evaluation (see reports/metric_contract.md).
+# ============================================================
+group_id: G00                     # TODO: điền mã nhóm nếu giảng viên cấp
+owner: "Phạm Hoàng Minh (người ký duyệt quyết định GO/HOLD/REWORK)"
+track_config: tracks/t11.yaml
+track: t11
+input: fixtures/t11_label_errors
+output: out/
+seed: 42
+offline: true
+strict_provenance: true
+
+params:
+  budget: 10                      # mặc định của track t11 (B của heldout = max(10, 10%*60) = 10); baseline dùng khóa này
+  review_budget: auto             # PoC: auto = max(10, ceil(10% * #annotations toàn pool)) — cùng công thức B của evaluator
+  # --- matching ---
+  match_iou: 0.30                 # stage-1 class-agnostic Hungarian: IoU tối thiểu để ghép
+  shift_gate: 2.0                 # stage-2: khoảng cách tâm / kích thước đối tượng tối đa để ghép "box bị dịch"
+  dup_iou: 0.50                   # hai annotation cùng ảnh, cùng class, IoU >= ngưỡng => nghi duplicate
+  orphan_overlap: 0.30            # prediction mồ côi chồng lấn annotation >= ngưỡng => không tính là missing
+  # --- trọng số độ tin cậy theo loại lỗi (chốt theo nguyên tắc, không tune trên heldout) ---
+  w_dup: 0.95
+  w_swap: 0.90
+  w_shift: 0.85
+  w_missing: 0.85
+  w_unmatched: 0.35               # annotation không có bằng chứng từ detector (có thể chỉ là detector bỏ sót)
+  missing_conf_floor: 0.40        # conf của prediction mồ côi dưới ngưỡng này gần như bị bỏ qua
+  # --- chính sách quyết định (sau review) ---
+  rework_error_rate: 0.30         # tỉ lệ lỗi xác nhận trong queue >= ngưỡng => REWORK
+  go_error_rate: 0.10             # < ngưỡng và không còn item điểm cao chưa review => GO
+  go_residual_score: 0.50
